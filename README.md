@@ -29,11 +29,11 @@ npm install
 
 Create a `.env` file. You will need the following keys in your `.env` file:
 
--   HOST: the hostname of your wordpress site
--   CTF_TOKEN: generated via Contentful admin panel
--   CTF_ENV: generated via Contentful admin panel
--   CTF_SPACE_ID: generated via Contentful admin panel
--   WP_REST_API_USER (optional: required if your WP REST API endpoints are protected - see docs [here](https://developer.wordpress.org/rest-api/frequently-asked-questions/#require-authentication-for-all-requests) and [here](https://developer.wordpress.org/rest-api/using-the-rest-api/authentication/))
+-   `HOST`: the hostname of your wordpress site
+-   `CTF_TOKEN`: generated via Contentful admin panel
+-   `CTF_ENV`: generated via Contentful admin panel
+-   `CTF_SPACE_ID`: generated via Contentful admin panel
+-   `WP_REST_API_USER` (optional: required if your WP REST API endpoints are protected - see docs [here](https://developer.wordpress.org/rest-api/frequently-asked-questions/#require-authentication-for-all-requests) and [here](https://developer.wordpress.org/rest-api/using-the-rest-api/authentication/))
 -   WP_REST_API_PW (optional: see above)
 
 Open up `migration.ts`, you'll need to make some modifications:
