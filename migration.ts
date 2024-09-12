@@ -1,8 +1,8 @@
-// import { createClient } from 'contentful-management';
+import { createClient } from 'contentful-management';
 // import get from 'axios';
 // import { writeFile } from 'fs';
-// import TurndownService from 'turndown';
-import { configDotenv } from "dotenv";
+import TurndownService from 'turndown';
+import { configDotenv } from 'dotenv';
 configDotenv();
 
 // import { CtfData, EnvVariables, WpData } from './types/types';
@@ -13,9 +13,8 @@ const {
     CTF_ENV,
     CTF_SPACE_ID,
     WP_REST_API_USER,
-    WP_REST_API_PW
+    WP_REST_API_PW,
 } = process.env;
-
 
 /**
  * Global variables that we're going use throughout this script
@@ -27,17 +26,17 @@ const {
  */
 const wpEndpoint = `https://${HOST}/wp-json/wp/v2/`;
 
-// /**
-//  * API Endpoints that we'd like to receive data from
-//  * (e.g. /wp-json/wp/v2/${key})
-//  */
-// const wpData = {
-//     // 'posts': [],
-//     'questions': [],
-//     // 'tags': [],
-//     // 'categories': [],
-//     // 'media': []
-// };
+/**
+ * API Endpoints that we'd like to receive data from
+ * (e.g. /wp-json/wp/v2/${key})
+ */
+const wpData = {
+    // 'posts': [],
+    questions: [],
+    // 'tags': [],
+    // 'categories': [],
+    // 'media': []
+};
 
 // /**
 //  * Contentful API requirements
@@ -49,17 +48,17 @@ const wpEndpoint = `https://${HOST}/wp-json/wp/v2/`;
 // }
 // Object.freeze(ctfData);
 
-// /**
-//  * Creation of Contentful Client
-//  */
-// const ctfClient = createClient({
-//     accessToken: ctfData.accessToken
-// })
+/**
+ * Creation of Contentful Client
+ */
+const ctfClient = createClient({
+    accessToken: CTF_TOKEN || '',
+});
 
-// /**
-//  * Internal: log output separator for terminal.
-//  */
-// const logSeparator = `-------`
+/**
+ * Internal: log output separator for terminal.
+ */
+const logSeparator = `-------`;
 
 // /**
 //  * Object to store WordPress API data in
@@ -71,12 +70,12 @@ const wpEndpoint = `https://${HOST}/wp-json/wp/v2/`;
 //  */
 // let contentfulData = []
 
-// /**
-//  * Markdown / Content conversion functions.
-//  */
-// const turndownService = new TurndownService({
-//     codeBlockStyle: 'fenced'
-// })
+/**
+ * Markdown / Content conversion functions.
+ */
+const turndownService = new TurndownService({
+    codeBlockStyle: 'fenced',
+});
 
 // /**
 //  * Convert HTML codeblocks to Markdown codeblocks.
@@ -598,7 +597,6 @@ const wpEndpoint = `https://${HOST}/wp-json/wp/v2/`;
 //     // console.log(foundImage[0])
 //     // let alt = foundImage[0].split('alt="')[1].split('"')[0]
 //     // }
-
 
 //     /**
 //      * https://www.contentful.com/developers/docs/concepts/rich-text/
