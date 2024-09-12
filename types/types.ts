@@ -1,3 +1,3 @@
 export interface WpData {
-    questions: unknown[];
+  questions: unknown[];
 }
