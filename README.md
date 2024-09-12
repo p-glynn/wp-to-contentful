@@ -2,22 +2,20 @@
 
 This is a script that will export all posts from WordPress using the Rest API and import them into Contentful using the Content Management API.
 
-I've used this script for my own personal site and decided to share it and document my process used to develop it so people can learn from it. The basis of the script is intended to be expanded on for your own specifc purpose, but you can use the script as-is by modifying a few things.
+I've used this script for my own personal site and decided to share it and document my process used to develop it so people can learn from it. The basis of the script is intended to be expanded on for your own specific purpose, but you can use the script as-is with a few minor configurations.
 
 Full write-up can be found here:
-https://ashcroft.dev/blog/script-migrate-wordpress-posts-contentful/
-
-NOTE: I have modified Jon Aschroft's work to use TypeScript.
+https://ashcroft.dev/blog/script-migrate-wordpress-posts-contentful/ (NOTE: This fork modifies Jon Ashcroft's work to use TypeScript).
 
 ## How to use the script
 
-This script will run in the terminal via Node (running tsx). You need to have [npm installed]('https://www.npmjs.com/get-npm').
+This script will run in the terminal via TSX / Node. You need to have [npm installed]('https://www.npmjs.com/get-npm').
 
 Steps to run:
 
 ### Clone The Repo
 
-`git clone git@github.com:pglynn/wp-to-contentful.git`
+`git clone git@github.com:p-glynn/wp-to-contentful.git`
 
 Inside your new folder, install the packages required to run:
 
@@ -38,20 +36,7 @@ Create a `.env` file. You will need the following keys in your `.env` file:
 
 Open up `migration.ts`, you'll need to make some modifications:
 
-```javascript
-let fieldData = {
-    id: postData.id,
-    type: postData.type,
-    postTitle: postData.title.rendered,
-    slug: postData.slug,
-    content: postData.content.rendered,
-    publishDate: postData.date_gmt + '+00:00',
-    featuredImage: postData.featured_media,
-    tags: getPostLabels(postData.tags, 'tags'),
-    categories: getPostLabels(postData.categories, 'categories'),
-    contentImages: getPostBodyImages(postData),
-};
-```
+(necessary modifications go here - post type?)
 
 ### Run the script
 
