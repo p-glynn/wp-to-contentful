@@ -3,3 +3,4 @@ node_modules
 wpPosts.json
 posts.json
 contentful-config.js
+.env
