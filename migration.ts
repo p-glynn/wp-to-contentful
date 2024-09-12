@@ -1,42 +1,54 @@
-import { createClient } from 'contentful-management';
-// import get from 'axios';
+// Imports: contentful-management, axios, fs, turndown, dotenv
+
+import contentful from 'contentful-management';
+import get from 'axios';
 // import { writeFile } from 'fs';
 import TurndownService from 'turndown';
 import { configDotenv } from 'dotenv';
+
+// configure dotenv
 configDotenv();
 
 // import { CtfData, EnvVariables, WpData } from './types/types';
 
-const {
-    HOST,
-    CTF_TOKEN,
-    CTF_ENV,
-    CTF_SPACE_ID,
-    WP_REST_API_USER,
-    WP_REST_API_PW,
-} = process.env;
+const { HOST, CTF_TOKEN, CTF_ENV, CTF_SPACE_ID, WP_REST_API_USER, WP_REST_API_PW } = process.env;
 
 /**
- * Global variables that we're going use throughout this script
- * -----------------------------------------------------------------------------
+ * Global vars ----------------------------------------------
  */
 
-/**
- * Main WordPress endpoint.
- */
+// base WordPress REST API endpoint
 const wpEndpoint = `https://${HOST}/wp-json/wp/v2/`;
+
+// make terminal log output easier to read
+const _delimiter = `-------`;
+
+// for pagination of WP API response data (if needed)
+const page = 1;
+const pageSize = 25;
+
+/**
+ * -----------------------------------------------------------------------------
+ * NOTE: You may have to adjust the following variables depending on your specific project config.
+ */
+
+const wpRestApiRequireAuth = true;
 
 /**
  * API Endpoints that we'd like to receive data from
  * (e.g. /wp-json/wp/v2/${key})
  */
-const wpData = {
-    // 'posts': [],
+const wpEndpoints = {
     questions: [],
+    // 'posts': [],
     // 'tags': [],
     // 'categories': [],
     // 'media': []
 };
+
+/**
+ * -----------------------------------------------------------------------------
+ */
 
 // /**
 //  * Contentful API requirements
@@ -51,14 +63,9 @@ const wpData = {
 /**
  * Creation of Contentful Client
  */
-const ctfClient = createClient({
+const ctfClient = contentful.createClient({
     accessToken: CTF_TOKEN || '',
 });
-
-/**
- * Internal: log output separator for terminal.
- */
-const logSeparator = `-------`;
 
 // /**
 //  * Object to store WordPress API data in
@@ -73,9 +80,9 @@ const logSeparator = `-------`;
 /**
  * Markdown / Content conversion functions.
  */
-const turndownService = new TurndownService({
-    codeBlockStyle: 'fenced',
-});
+// const turndownService = new TurndownService({
+//     codeBlockStyle: 'fenced',
+// });
 
 // /**
 //  * Convert HTML codeblocks to Markdown codeblocks.
@@ -125,66 +132,79 @@ const turndownService = new TurndownService({
 //  * -----------------------------------------------------------------------------
 //  */
 
-// function migrateContent() {
-//     const promises = [];
-//     let page = 1;
+function runMigration() {
+    const promises = [];
 
-//     console.log(logSeparator)
-//     console.log(`Getting WordPress API data`)
-//     console.log(logSeparator)
+    console.log(_delimiter);
+    console.log(`Getting WordPress API data`);
+    console.log(_delimiter);
 
-//     // Loop over our content types and create API endpoint URLs
-//     for (const [key, value] of Object.entries(wpData)) {
-//         let wpUrl = `${wpEndpoint}${key}?per_page=20&page=${page}`;
-//         promises.push(wpUrl);
-//     }
+    // Loop over our content types and create API endpoint URLs
+    for (const [key] of Object.entries(wpEndpoints)) {
+        const wpUrl = `${wpEndpoint}${key}?per_page=${pageSize}&page=${page}`;
+        promises.push(wpUrl);
+    }
 
-//     console.log(promises);
-//     // getAllData(promises)
-//     //   .then(response =>{
-//     //     apiData = response;
-//     //     console.log(apiData);
-//     //     mapData();
+    console.log(promises);
+    // getAllData(promises)
+    //   .then(response =>{
+    //     apiData = response;
+    //     console.log(apiData);
+    //     mapData();
 
-//     //   }).catch(error => {
-//     //     console.log(error)
-//     //   })
-//     getSinglePageData(promises[0]);
-// }
+    //   }).catch(error => {
+    //     console.log(error)
+    //   })
+    getSinglePageData(promises[0]);
+}
 
 // function getAllData(URLs) {
 //     return Promise.all(URLs.map(fetchData));
 // }
 
-// async function getSinglePageData(URL) {
-//     const data = fetchDataAsync(URL);
-// }
+async function getSinglePageData(url: string) {
+    const data = fetchDataAsync(url);
+}
 
-// function fetchData(URL) {
-//     return get(URL)
+// function fetchData(url: string) {
+//     return get(url)
 //         .then(function (response) {
 //             return {
 //                 success: true,
 //                 endpoint: '',
-//                 data: response.data
+//                 data: response.data,
 //             };
 //         })
-//         .catch(function (error) {
+//         .catch(function (e) {
+//             console.log(e);
 //             return {
-//                 success: false
+//                 success: false,
 //             };
 //         });
 // }
 
-// const fetchDataAsync = async (url) => {
-//     const res = await get(url);
-//     try {
-//         const json = await req.json();
-//         console.log(json);
-//     } catch (error) {
-//         console.log(error);
-//     }
-// }
+const getWpRequestConfig = (requireAuth: boolean) => {
+    if (requireAuth) {
+        return {
+            headers: {
+                Authorization: `Basic ${Buffer.from(`${WP_REST_API_USER}:${WP_REST_API_PW}`).toString('base64')}`,
+            },
+        };
+    } else {
+        return {};
+    }
+};
+
+const fetchDataAsync = async (url: string) => {
+    const wpRequestConfig = getWpRequestConfig(wpRestApiRequireAuth);
+    const res = await get(url, wpRequestConfig);
+    try {
+        // const data = await res.json();
+        console.log(res.data);
+    } catch (error) {
+        console.log(error);
+    }
+};
 
 // /**
 //  * Get our entire API response and filter it down to only show content that we want to include
@@ -654,4 +674,5 @@ const turndownService = new TurndownService({
 //     return markdown
 // }
 
-// migrateContent();
+// call the main function
+runMigration();
