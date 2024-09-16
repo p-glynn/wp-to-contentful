@@ -5,10 +5,10 @@ import { writeFile } from 'fs';
  * @param {Object} inputData - JSON data to write to file
  * @param {string} label - name of the file to write to
  */
-export function writeDataToFile(inputData: object, label: string, { isError = false, isFull = false }) {
+export function writeDataToFile(inputData: object, label: string, { isError = false, fetchAll = false }) {
     console.log(`Writing ${label} data to file`);
 
-    let outputDirectory = isFull ? 'full' : 'test';
+    let outputDirectory = fetchAll ? 'full' : 'test';
     if (isError) {
         outputDirectory += '/errors';
     }
