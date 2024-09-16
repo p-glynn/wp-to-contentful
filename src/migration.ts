@@ -1,258 +1,163 @@
-// Imports: contentful-management, axios, fs, turndown, dotenv
-
-import contentful from 'contentful-management';
+// Package Imports
+import contentful, { Environment } from 'contentful-management';
 import get from 'axios';
-// import { writeFile } from 'fs';
-import TurndownService from 'turndown';
+import { writeFile } from 'fs';
+// import TurndownService from 'turndown';
 import { configDotenv } from 'dotenv';
 
-// configure dotenv
+import { WPQueryOptions, WPAuthHeaders, WPResponse } from '../types/types';
+
+// import project specific configuration from .env file
 configDotenv();
+const { HOST, CTF_TOKEN, CTF_ENV, CTF_SPACE_ID, WP_REST_API_USER, WP_REST_API_PW, MIGRATION_ENDPOINT } = process.env;
 
-// import { CtfData, EnvVariables, WpData } from './types/types';
-
-const { HOST, CTF_TOKEN, CTF_ENV, CTF_SPACE_ID, WP_REST_API_USER, WP_REST_API_PW } = process.env;
-
-/**
- * Global vars ----------------------------------------------
- */
+// Global vars
 
 // base WordPress REST API endpoint
-const wpEndpoint = `https://${HOST}/wp-json/wp/v2/`;
+const wordpressApiBasePath = `https://${HOST}/wp-json/`;
 
 // make terminal log output easier to read
 const _delimiter = `-------`;
 
-// for pagination of WP API response data (if needed)
-const page = 1;
-const pageSize = 25;
-
 /**
- * -----------------------------------------------------------------------------
- * NOTE: You may have to adjust the following variables depending on your specific project config.
+ * ----------------------------------------------
+ * Project specific configuration
  */
 
-const wpRestApiRequireAuth = true;
+const wpRestApiRequireAuth = false;
+// const localeString = 'en-US';
+
+// for pagination of WP REST API response data (if needed)
+const pageSize = 25;
 
 /**
  * API Endpoints that we'd like to receive data from
  * (e.g. /wp-json/wp/v2/${key})
  */
 const wpEndpoints = {
+    // posts: [],
+    // tags: [],
+    // categories: [],
+    // media: [],
     questions: [],
-    // 'posts': [],
-    // 'tags': [],
-    // 'categories': [],
-    // 'media': []
 };
 
-/**
- * -----------------------------------------------------------------------------
+const questionTypes = ['angiogram', 'ecg', 'echo', 'cv_image'];
+
+/* *
+ * Main Migration Script.
+ * ----------------------------------------------
  */
 
-// /**
-//  * Contentful API requirements
-//  */
-// const ctfData = {
-//     accessToken: CTF_TOKEN,
-//     environment: CTF_ENV,
-//     spaceId: CTF_SPACE_ID
-// }
-// Object.freeze(ctfData);
-
-/**
- * Creation of Contentful Client
- */
-const ctfClient = contentful.createClient({
-    accessToken: CTF_TOKEN || '',
-});
-
-// /**
-//  * Object to store WordPress API data in
-//  */
-// let apiData = {}
-
-// /**
-//  * Object to store Contentful Data in.
-//  */
-// let contentfulData = []
-
-/**
- * Markdown / Content conversion functions.
- */
-// const turndownService = new TurndownService({
-//     codeBlockStyle: 'fenced',
-// });
-
-// /**
-//  * Convert HTML codeblocks to Markdown codeblocks.
-//  */
-// turndownService.addRule('fencedCodeBlock', {
-//     filter: function (node, options) {
-//         return (
-//             options.codeBlockStyle === 'fenced' &&
-//             node.nodeName === 'PRE' &&
-//             node.firstChild &&
-//             node.firstChild.nodeName === 'CODE'
-//         )
-//     },
-//     replacement: function (content, node, options) {
-//         let className = node.firstChild.getAttribute('class') || ''
-//         let language = (className.match(/language-(\S+)/) || [null, ''])[1]
-
-//         return (
-//             '\n\n' + options.fence + language + '\n' +
-//             node.firstChild.textContent +
-//             '\n' + options.fence + '\n\n'
-//         )
-//     }
-// })
-
-// /**
-//  * Convert inline HTML images to inline markdown image format.
-//  */
-// turndownService.addRule('replaceWordPressImages', {
-//     filter: ['img'],
-//     replacement: function (content, node, options) {
-//         let assetUrl = contentfulData.assets.filter(asset => {
-//             let assertFileName = asset.split('/').pop()
-//             let nodeFileName = node.getAttribute('src').split('/').pop()
-
-//             if (assertFileName === nodeFileName) {
-//                 return asset
-//             }
-//         })[0];
-
-//         return `![${node.getAttribute('alt')}](${assetUrl})`
-//     }
-// })
-
-// /**
-//  * Main Migration Script.
-//  * -----------------------------------------------------------------------------
-//  */
-
-function runMigration() {
-    const promises = [];
-
+const runMigration = async () => {
     console.log(_delimiter);
-    console.log(`Getting WordPress API data`);
+    console.log(`Fetching WordPress API data`);
     console.log(_delimiter);
 
-    // Loop over our content types and create API endpoint URLs
+    // Loop over our content types and fetch data from the WP REST API
     for (const [key] of Object.entries(wpEndpoints)) {
-        const wpUrl = `${wpEndpoint}${key}?per_page=${pageSize}&page=${page}`;
-        promises.push(wpUrl);
+        if (key === 'questions') {
+            for (const questionType of questionTypes) {
+                const baseUrl = `${wordpressApiBasePath}${MIGRATION_ENDPOINT}${key}`;
+                const wpAuthHeaders = getWpRequestConfig(wpRestApiRequireAuth);
+                const allData = await fetchAllData([], { baseUrl, questionType, page: 1, pageSize }, wpAuthHeaders);
+                writeDataToFile(allData, questionType);
+            }
+        } else {
+            // const url = `${wordpressApiBasePath}${key}?&per_page=${pageSize}&page=1`;
+            // const data = await fetchData(url);
+            // writeDataToFile(data, key);
+        }
     }
+};
+// url: string, questionType: string, page: number, pageSize: number
+const fetchAllData = async (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    currentData: any[] = [],
+    { baseUrl, questionType, page, pageSize }: WPQueryOptions,
+    wpAuthHeaders: WPAuthHeaders
+) => {
+    const { questions } = await fetchSinglePageData({ baseUrl, questionType, page, pageSize }, wpAuthHeaders);
+    const newData = [...currentData, ...questions];
+    if (questions.length === pageSize) {
+        const nextPage = page + 1;
+        return fetchAllData(newData, { baseUrl, questionType, page: nextPage, pageSize }, wpAuthHeaders);
+    }
+    return newData;
+};
 
-    console.log(promises);
-    // getAllData(promises)
-    //   .then(response =>{
-    //     apiData = response;
-    //     console.log(apiData);
-    //     mapData();
-
-    //   }).catch(error => {
-    //     console.log(error)
-    //   })
-    getSinglePageData(promises[0]);
-}
-
-// function getAllData(URLs) {
-//     return Promise.all(URLs.map(fetchData));
-// }
-
-async function getSinglePageData(url: string) {
-    const data = fetchDataAsync(url);
-}
-
-// function fetchData(url: string) {
-//     return get(url)
-//         .then(function (response) {
-//             return {
-//                 success: true,
-//                 endpoint: '',
-//                 data: response.data,
-//             };
-//         })
-//         .catch(function (e) {
-//             console.log(e);
-//             return {
-//                 success: false,
-//             };
-//         });
-// }
-
-const getWpRequestConfig = (requireAuth: boolean) => {
+const getWpRequestConfig = (requireAuth: boolean): WPAuthHeaders => {
     if (requireAuth) {
         return {
             headers: {
                 Authorization: `Basic ${Buffer.from(`${WP_REST_API_USER}:${WP_REST_API_PW}`).toString('base64')}`,
             },
         };
-    } else {
-        return {};
     }
+    return {};
 };
 
-const fetchDataAsync = async (url: string) => {
-    const wpRequestConfig = getWpRequestConfig(wpRestApiRequireAuth);
-    const res = await get(url, wpRequestConfig);
+const fetchSinglePageData = async (
+    { baseUrl, questionType, page, pageSize }: WPQueryOptions,
+    wpAuthHeaders: WPAuthHeaders
+) => {
+    const requestUrl = `${baseUrl}?question_type=${questionType}&page=${page}&per_page=${pageSize}`;
+    console.log(`Fetching page ${page} of ${questionType} questions`);
+    const { data } = await get(requestUrl, wpAuthHeaders);
     try {
-        // const data = await res.json();
-        console.log(res.data);
+        return data;
     } catch (error) {
         console.log(error);
     }
 };
 
-// /**
-//  * Get our entire API response and filter it down to only show content that we want to include
-//  */
-// function mapData() {
-//     // Get WP posts from API object
+/**
+ * Get our entire API response and filter it down to only show content that we want to include
+ */
+const mapData = () => {
+    // Get WP posts from API object
 
-//     // Loop over our conjoined data structure and append data types to each child.
-//     for (const [index, [key, value]] of Object.entries(Object.entries(wpData))) {
-//         apiData[index].endpoint = key
-//     }
+    // Loop over our conjoined data structure and append data types to each child.
+    for (const [index, [key, value]] of Object.entries(Object.entries(wpData))) {
+        apiData[index].endpoint = key;
+    }
 
-//     console.log(`Reducing API data to only include fields we want`)
-//     let apiPosts = getApiDataType('posts')[0];
-//     // Loop over posts - note: we probably /should/ be using .map() here.
-//     for (let [key, postData] of Object.entries(apiPosts.data)) {
-//         console.log(`Post Data: ${postData}`);
-//         // console.log(`Parsing ${postData.slug}`)
-//         /**
-//          * Create base object with only limited keys
-//          * (e.g. just 'slug', 'categories', 'title') etc.
-//          *
-//          * The idea here is that the key will be your Contentful field name
-//          * and the value be the WP post value. We will later match the keys
-//          * used here to their Contentful fields in the API.
-//          */
-//         // let fieldData = {
-//         //   id: postData.id,
-//         //   type: postData.type,
-//         //   postTitle: postData.title.rendered,
-//         //   slug: postData.slug,
-//         //   content: postData.content.rendered,
-//         //   publishDate: postData.date_gmt + '+00:00',
-//         //   featuredImage: postData.featured_media,
-//         //   tags: getPostLabels(postData.tags, 'tags'),
-//         //   categories: getPostLabels(postData.categories, 'categories'),
-//         //   contentImages: getPostBodyImages(postData)
-//         // }
+    console.log(`Reducing API data to only include fields we want`);
+    const apiPosts = getApiDataType('posts')[0];
+    // Loop over posts - note: we probably /should/ be using .map() here.
+    for (const [key, postData] of Object.entries(apiPosts.data)) {
+        console.log(`Post Data: ${postData}`);
+        console.log(`Parsing ${postData.slug}`);
+        /**
+         * Create base object with only limited keys
+         * (e.g. just 'slug', 'categories', 'title') etc.
+         *
+         * The idea here is that the key will be your Contentful field name
+         * and the value be the WP post value. We will later match the keys
+         * used here to their Contentful fields in the API.
+         */
+        // let fieldData = {
+        //   id: postData.id,
+        //   type: postData.type,
+        //   postTitle: postData.title.rendered,
+        //   slug: postData.slug,
+        //   content: postData.content.rendered,
+        //   publishDate: postData.date_gmt + '+00:00',
+        //   featuredImage: postData.featured_media,
+        //   tags: getPostLabels(postData.tags, 'tags'),
+        //   categories: getPostLabels(postData.categories, 'categories'),
+        //   contentImages: getPostBodyImages(postData)
+        // }
 
-//         // wpData.posts.push(fieldData)
-//     }
+        // wpData.posts.push(fieldData)
+    }
 
-//     console.log(`...Done!`)
-//     console.log(logSeparator)
+    // console.log(`...Done!`);
+    // console.log(_delimiter);
 
-//     // writeDataToFile(wpData, 'wpPosts');
-//     // createForContentful();
-// }
+    // writeDataToFile(wpData, 'wpPosts');
+    // createForContentful();
+};
 
 // function getPostBodyImages(postData) {
 //     // console.log(`- Getting content images`)
@@ -326,86 +231,98 @@ const fetchDataAsync = async (url: string) => {
 //     return apiType
 // }
 
-// /**
-//  * Write all exported WP data to its own JSON file.
-//  * @param {Object} dataTree - JSON body of WordPress data
-//  * @param {*} dataType - type of WordPress API endpoint.
-//  */
-// function writeDataToFile(dataTree, dataType) {
-//     console.log(`Writing data to a file`)
+/**
+ * Write all exported WP data to its own JSON file.
+ * @param {Object} dataTree - JSON body of WordPress data
+ * @param {string} dataType - type of WordPress API endpoint.
+ */
+function writeDataToFile(dataTree: object, dataType: string) {
+    console.log(`Writing ${dataType} data to file`);
 
-//     writeFile(`./${dataType}.json`, JSON.stringify(dataTree, null, 2), (err) => {
-//         if (err) {
-//             console.error(err);
-//             return;
-//         };
-//         console.log(`...Done!`)
-//         console.log(logSeparator)
-//     });
-// }
+    writeFile(`./output/${dataType}.json`, JSON.stringify(dataTree, null, 2), (err) => {
+        if (err) {
+            console.error(err);
+            return;
+        }
+        console.log(`...Done!`);
+        console.log(_delimiter);
+    });
+}
 
-// /**
-//  * Create Contentful Client.
-//  */
-// function createForContentful() {
-//     ctfClient.getSpace(ctfData.spaceId)
-//         .then((space) => space.getEnvironment(ctfData.environment))
-//         .then((environment) => {
-//             buildContentfulAssets(environment);
-//         })
-//         .catch((error) => {
-//             console.log(error)
-//             return error
-//         })
-// }
+/**
+ * Instantiate Contentful Client
+ */
+const ctfClient = contentful.createClient({
+    accessToken: CTF_TOKEN || '',
+});
 
-// /**
-//  * Build data trees for Contentful assets.
-//  * @param {String} environment - name of Contentful environment.
-//  */
-// function buildContentfulAssets(environment) {
-//     let assetPromises = []
+/**
+ * Contentful API Call
+ */
+const createForContentful = async () => {
+    const space = await ctfClient.getSpace(CTF_SPACE_ID || '');
+    const environment = await space.getEnvironment(CTF_ENV || 'master');
+    try {
+        // buildContentfulAssets(environment);
+    } catch (error) {
+        console.error(error);
+    }
+    // // .then((space) => space.getEnvironment(CTF_ENV || 'master'))
+    // .then((environment) => {
 
-//     console.log('Building Contentful Asset Objects')
+    // })
+    // .catch((error) => {
+    //     console.log(error)
+    //     return error
+    // })
+};
 
-//     // For every image in every post, create a new asset.
-//     for (let [index, wpPost] of wpData.posts.entries()) {
-//         for (const [imgIndex, contentImage] of wpPost.contentImages.entries()) {
-//             let assetObj = {
-//                 title: {
-//                     'en-GB': contentImage.title
-//                 },
-//                 description: {
-//                     'en-GB': contentImage.description
-//                 },
-//                 file: {
-//                     'en-GB': {
-//                         contentType: 'image/jpeg',
-//                         fileName: contentImage.link.split('/').pop(),
-//                         upload: encodeURI(contentImage.link)
-//                     }
-//                 }
-//             }
+/**
+ * Build data trees for Contentful assets.
+ * @param {String} environment - name of Contentful environment.
+ */
+function buildContentfulAssets(environment: Environment) {
+    const assetPromises = [];
 
-//             assetPromises.push(assetObj);
-//         }
-//     }
+    console.log('Building Contentful Asset Objects');
 
-//     let assets = []
+    // For every image in every post, create a new asset.
+    for (const [index, wpPost] of wpData.posts.entries()) {
+        for (const [imgIndex, contentImage] of wpPost.contentImages.entries()) {
+            const assetObj = {
+                title: {
+                    'en-GB': contentImage.title,
+                },
+                description: {
+                    'en-GB': contentImage.description,
+                },
+                file: {
+                    'en-GB': {
+                        contentType: 'image/jpeg',
+                        fileName: contentImage.link.split('/').pop(),
+                        upload: encodeURI(contentImage.link),
+                    },
+                },
+            };
 
-//     console.log(`Creating Contentful Assets...`)
-//     console.log(logSeparator)
+            assetPromises.push(assetObj);
+        }
+    }
 
-//     // getAndStoreAssets()
+    const assets = [];
 
-//     createContentfulAssets(environment, assetPromises, assets)
-//         .then((result) => {
-//             console.log(`...Done!`)
-//             console.log(logSeparator)
+    console.log(`Creating Contentful Assets...`);
+    console.log(_delimiter);
 
-//             getAndStoreAssets(environment, assets)
-//         })
-// }
+    // getAndStoreAssets()
+
+    createContentfulAssets(environment, assetPromises, assets).then((result) => {
+        console.log(`...Done!`);
+        console.log(_delimiter);
+
+        getAndStoreAssets(environment, assets);
+    });
+}
 
 // /**
 //  * Fetch all published assets from Contentful and store in a variable.
@@ -434,7 +351,7 @@ const fetchDataAsync = async (url: string) => {
 //             return error
 //         });
 //     console.log(`...Done!`)
-//     console.log(logSeparator)
+//     console.log(_delimiter)
 // }
 
 // /**
@@ -482,7 +399,7 @@ const fetchDataAsync = async (url: string) => {
 //  */
 // function createContentfulPosts(environment, assets) {
 //     console.log(`Creating Contentful Posts...`)
-//     console.log(logSeparator)
+//     console.log(_delimiter)
 
 //     // let postFields = {}
 //     /**
@@ -553,11 +470,11 @@ const fetchDataAsync = async (url: string) => {
 //     console.log(`Post objects created, attempting to create entries...`)
 //     createContentfulEntries(environment, promises)
 //         .then((result) => {
-//             console.log(logSeparator);
+//             console.log(_delimiter);
 //             console.log(`Done!`);
-//             console.log(logSeparator);
+//             console.log(_delimiter);
 //             console.log(`The migration has completed.`)
-//             console.log(logSeparator);
+//             console.log(_delimiter);
 //         });
 // }
 
@@ -602,12 +519,12 @@ const fetchDataAsync = async (url: string) => {
 //  */
 // function formatRichTextPost(content) {
 //     // TODO: split  at paragraphs, create a node for each.
-//     console.log(logSeparator)
+//     console.log(_delimiter)
 
 //     // turndownService.remove('code')
 //     let markdown = turndownService.turndown(content)
 
-//     // console.log(logSeparator)
+//     // console.log(_delimiter)
 //     // console.log(markdown)
 
 //     // let imageLinks = /!\[[^\]]*\]\((.*?)\s*("(?:.*[^"])")?\s*\)/g
@@ -674,5 +591,58 @@ const fetchDataAsync = async (url: string) => {
 //     return markdown
 // }
 
-// call the main function
+/**
+ * Markdown / Content conversion functions.
+ */
+// const turndownService = new TurndownService({
+//     codeBlockStyle: 'fenced',
+// });
+
+// /**
+//  * Convert HTML codeblocks to Markdown codeblocks.
+//  */
+// turndownService.addRule('fencedCodeBlock', {
+//     filter: function (node, options) {
+//         return (
+//             options.codeBlockStyle === 'fenced' &&
+//             node.nodeName === 'PRE' &&
+//             node.firstChild &&
+//             node.firstChild.nodeName === 'CODE'
+//         )
+//     },
+//     replacement: function (content, node, options) {
+//         let className = node.firstChild.getAttribute('class') || ''
+//         let language = (className.match(/language-(\S+)/) || [null, ''])[1]
+
+//         return (
+//             '\n\n' + options.fence + language + '\n' +
+//             node.firstChild.textContent +
+//             '\n' + options.fence + '\n\n'
+//         )
+//     }
+// })
+
+// /**
+//  * Convert inline HTML images to inline markdown image format.
+//  */
+// turndownService.addRule('replaceWordPressImages', {
+//     filter: ['img'],
+//     replacement: function (content, node, options) {
+//         let assetUrl = contentfulData.assets.filter(asset => {
+//             let assertFileName = asset.split('/').pop()
+//             let nodeFileName = node.getAttribute('src').split('/').pop()
+
+//             if (assertFileName === nodeFileName) {
+//                 return asset
+//             }
+//         })[0];
+
+//         return `![${node.getAttribute('alt')}](${assetUrl})`
+//     }
+// })
+
+/**
+ * call the main function to start the migration.
+ * -----------------------------------------------------------------------------
+ */
 runMigration();
