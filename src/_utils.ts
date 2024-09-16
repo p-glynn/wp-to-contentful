@@ -1,22 +1,25 @@
 import { writeFile } from 'fs';
-import { _delimiter } from './variables';
 
 /**
- * Write all exported WP data to its own JSON file.
+ * Write data to its own JSON file.
  * @param {Object} inputData - JSON data to write to file
- * @param {string} label - type of WordPress API endpoint.
+ * @param {string} label - name of the file to write to
  */
-export function writeDataToFile(inputData: object, label: string, isError = false) {
+export function writeDataToFile(inputData: object, label: string, { isError = false, isFull = false }) {
     console.log(`Writing ${label} data to file`);
 
-    const filePath = isError ? `./output/errors/${label}.json` : `./output/${label}.json`;
+    let outputDirectory = isFull ? 'full' : 'test';
+    if (isError) {
+        outputDirectory += '/errors';
+    }
+
+    const filePath = `./output/${outputDirectory}/${label}.json`;
 
     writeFile(filePath, JSON.stringify(inputData, null, 2), (err) => {
         if (err) {
             console.error(err);
             return;
         }
-        console.log(`...Done!`);
-        console.log(_delimiter);
+        console.log(`Finished writing ${label} data`);
     });
 }
