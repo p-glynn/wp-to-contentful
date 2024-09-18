@@ -12,12 +12,12 @@ import {
     wpEndpoints,
     questionTypes,
     pageSize,
-} from './variables';
+} from './constants';
 
 // base WordPress REST API endpoint
 const wordpressApiBasePath = `https://${WP_HOST}/wp-json/`;
 
-export const fetchWordpressData = async (fetchAll = false) => {
+export async function fetchWordpressData(fetchAll = false) {
     console.log(_delimiter);
     console.log(`Fetching WordPress API data`);
     console.log(_delimiter);
@@ -34,7 +34,8 @@ export const fetchWordpressData = async (fetchAll = false) => {
                     wpAuthHeaders,
                     fetchAll
                 );
-                writeDataToFile(allData, questionType, { fetchAll: false });
+                const subDir = fetchAll ? 'full' : 'test';
+                writeDataToFile(allData, subDir, questionType);
             }
         } else {
             // const url = `${wordpressApiBasePath}${key}?&per_page=${pageSize}&page=1`;
@@ -42,28 +43,33 @@ export const fetchWordpressData = async (fetchAll = false) => {
             // writeDataToFile(data, key);
         }
     }
-};
+}
 
-const fetchAllDataRecursive = async (
+async function fetchAllDataRecursive(
     currentData: Question[] = [],
     { baseUrl, questionType, page, pageSize }: WPQueryOptions,
     wpAuthHeaders: WPAuthHeaders,
-    full: boolean
-) => {
-    const size = full ? pageSize : 5;
+    fetchAll: boolean
+) {
+    const size = fetchAll ? pageSize : 5;
     const { questions } = await fetchSinglePageData({ baseUrl, questionType, page, pageSize: size }, wpAuthHeaders);
     const newData = [...currentData, ...questions];
-    if (full && questions.length === pageSize) {
+    if (fetchAll && questions.length === pageSize) {
         const nextPage = page + 1;
-        return fetchAllDataRecursive(newData, { baseUrl, questionType, page: nextPage, pageSize }, wpAuthHeaders, full);
+        return fetchAllDataRecursive(
+            newData,
+            { baseUrl, questionType, page: nextPage, pageSize },
+            wpAuthHeaders,
+            fetchAll
+        );
     }
     return newData;
-};
+}
 
-const fetchSinglePageData = async (
+async function fetchSinglePageData(
     { baseUrl, questionType, page, pageSize }: WPQueryOptions,
     wpAuthHeaders: WPAuthHeaders
-) => {
+) {
     const requestUrl = `${baseUrl}?question_type=${questionType}&page=${page}&per_page=${pageSize}`;
     console.log(`Fetching page ${page} of ${questionType} questions`);
     const { data } = await get(requestUrl, wpAuthHeaders);
@@ -72,9 +78,9 @@ const fetchSinglePageData = async (
     } catch (error) {
         console.log(error);
     }
-};
+}
 
-const getWpRequestConfig = (requireAuth: boolean): WPAuthHeaders => {
+function getWpRequestConfig(requireAuth: boolean): WPAuthHeaders {
     if (requireAuth) {
         return {
             headers: {
@@ -83,7 +89,7 @@ const getWpRequestConfig = (requireAuth: boolean): WPAuthHeaders => {
         };
     }
     return {};
-};
+}
 
 // invoke the main function
 // fetchWordpressData(true);
