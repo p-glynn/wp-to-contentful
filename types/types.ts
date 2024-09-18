@@ -22,6 +22,7 @@ export interface Question extends OptionalMediaProps<typeof optionalProperties> 
     question_title: string;
     question_type: string;
     explanation: string;
+    secondary_text?: string;
 }
 
 export interface ContentfulQuestion {
@@ -36,6 +37,9 @@ export interface ContentfulQuestion {
             [localeString]: number;
         };
         explanation: {
+            [localeString]: string;
+        };
+        secondaryText?: {
             [localeString]: string;
         };
         images?: {
