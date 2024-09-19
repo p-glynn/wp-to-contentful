@@ -29,6 +29,12 @@ export const wpEndpoints = {
 };
 
 export const questionTypes = ['angiogram', 'ecg', 'echo', 'cv_image'];
+export const questionTypesMap = {
+    angiogram: 'Angiogram',
+    ecg: 'ecg',
+    echo: 'ECHO',
+    cv_image: 'QBank',
+};
 
 export const imageProperties = [
     'question_ecg_image',
