@@ -1,45 +1,17 @@
-import contentful, { Environment, Space, Entry } from 'contentful-management';
+import contentful, { Environment, Entry } from 'contentful-management';
 import { readFileSync } from 'fs';
 
-import {
-    CTF_TOKEN,
-    CTF_ENV,
-    CTF_SPACE_ID,
-    localeString,
-    questionTypes,
-    imageProperties,
-    markedImageProperties,
-    videoProperties,
-} from './constants';
-import { writeDataToFile, delay } from './_utils';
+import { localeString, questionTypes, imageProperties, markedImageProperties, videoProperties } from './constants';
+
+import { writeDataToFile, delay, getContentfulEnvironment } from './_utils';
 import { ContentfulQuestion, Media, Question, AssetLink } from '../types/types';
-
-const queue: (() => Promise<void>)[] = [];
-
-export async function processQueue(fullUpload = false) {
-    await createForContentful(fullUpload);
-    while (queue.length > 0) {
-        const task = queue.shift();
-        if (task) {
-            await task();
-            await delay(500); // Adjust the delay as needed
-        }
-    }
-}
-
-/**
- * Instantiate Contentful Client
- */
-const contentfulClient = contentful.createClient({
-    accessToken: CTF_TOKEN || '',
-});
 
 /**
  * Fetch data from JSON file
  */
 function loadQuestionsFromFile(questionType: string, fullUpload: boolean): Question[] {
     const pathHelper = fullUpload ? 'full' : 'test';
-    const data = readFileSync(`output/${pathHelper}/${questionType}.json`, 'utf8');
+    const data = readFileSync(`data/${pathHelper}/${questionType}.json`, 'utf8');
     return JSON.parse(data);
 }
 
@@ -162,6 +134,18 @@ function generateMediaBody(url: string) {
 }
 
 async function uploadAllMedia(environment: Environment, mediaArray: Media[]): Promise<contentful.Asset[]> {
+    // const mediaQueue: (() => Promise<unknown>)[] = [];
+    // mediaArray.forEach((media) => {
+    //     mediaQueue.push(async () => {
+    //         try {
+    //             const asset = await uploadMedia(environment, media);
+    //             return asset; // Return the asset directly
+    //         } catch (error) {
+    //             console.error(`Error uploading media: ${error}`);
+    //             return error; // Rethrow the error to handle it in the queue processing
+    //         }
+    //     });
+    // });
     const assets = (
         await Promise.all(
             mediaArray.map(async (mediaFile: Media) => {
@@ -170,6 +154,7 @@ async function uploadAllMedia(environment: Environment, mediaArray: Media[]): Pr
             })
         )
     ).filter((asset): asset is contentful.Asset => asset !== undefined);
+    // const assets = await processMediaQueue(mediaQueue); // No need to flatten
     return assets;
 }
 
@@ -217,8 +202,10 @@ async function createQuestions(
     fullUpload: boolean
 ) {
     const failedUploadQuestionIds: number[] = [];
-    questions.forEach((question: Question, index: number) => {
-        queue.push(async () => {
+    const queue: (() => Promise<void>)[] = [];
+    questions.forEach(async (question: Question, index: number) => {
+        await queue.push(async (): Promise<Entry | undefined> => {
+            console.log(`Creating question: ${question.id}`);
             try {
                 if (!fullUpload && index >= 2) {
                     return;
@@ -229,6 +216,7 @@ async function createQuestions(
 
                 const publishedQuestion = await questionUpload.publish();
                 console.log(`${Date.now()} - Published question: ${publishedQuestion.sys.id}`);
+                return publishedQuestion;
             } catch (error) {
                 console.error(`Error creating post: ${error}`);
                 failedUploadQuestionIds.push(question.id);
@@ -237,27 +225,55 @@ async function createQuestions(
     });
     const subDir = fullUpload ? 'full' : 'test';
     if (failedUploadQuestionIds.length) {
-        writeDataToFile(failedUploadQuestionIds, `${subDir}/errors`, questionType);
+        await writeDataToFile(failedUploadQuestionIds, `${subDir}/errors`, questionType);
     }
+    return queue;
 }
 
 /**
  * Contentful API Call
  */
-async function createForContentful(fullUpload = false) {
+export async function createForContentful(fullUpload = false): Promise<void> {
     try {
-        const space: Space = await contentfulClient.getSpace(CTF_SPACE_ID || '');
-        await delay(500);
-        const environment: Environment = await space.getEnvironment(CTF_ENV || 'master');
-        await delay(500);
-
-        questionTypes.forEach(async (questionType: string) => {
-            const questions = loadQuestionsFromFile(questionType, fullUpload);
-            await createQuestions(environment, questions, questionType, fullUpload);
-        });
+        const environment: Environment = await getContentfulEnvironment();
+        await Promise.all(
+            questionTypes.map(async (questionType: string) => {
+                const questions = loadQuestionsFromFile(questionType, fullUpload);
+                const queue = await createQuestions(environment, questions, questionType, fullUpload);
+                console.log(queue);
+                await processQueue(queue);
+            })
+        );
     } catch (error) {
         console.error(`Error with data or environment setup: ${error}`);
     }
 }
 
 // createForContentful();
+
+// const queue: (() => Promise<void>)[] = [];
+
+// Use a queue to artificially add a delay / avoid rate limiting
+// export async function processMediaQueue(queue: (() => Promise<contentful.Asset | undefined>)[]) {
+//     const output = [];
+//     while (queue.length > 0) {
+//         const task = queue.shift();
+//         if (task) {
+//             const media = await task();
+//             output.push(media);
+//             await delay(500); // Adjust the delay as needed
+//         }
+//     }
+//     return output;
+// }
+
+// Use a queue to artificially add a delay / avoid rate limiting
+export async function processQueue(queue: (() => Promise<void>)[]) {
+    while (queue.length > 0) {
+        const task = queue.shift();
+        if (task) {
+            await task();
+            await delay(500); // Adjust the delay as needed
+        }
+    }
+}
