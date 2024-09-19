@@ -66,6 +66,17 @@ export interface AssetLink {
     };
 }
 
+export interface InputField {
+    id: string;
+    label: string;
+}
+
+export interface FieldGroup {
+    id: string;
+    label: string;
+    data: InputField[];
+}
+
 type OptionalMediaProps<T extends readonly string[]> = {
     [K in T[number]]?: string | number;
 };
