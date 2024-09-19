@@ -9,11 +9,12 @@ import { join } from 'path';
  * @param {boolean} append - whether to append to the file or overwrite it
  */
 export async function writeDataToFile(inputData: object, subdirectory: string, fileName: string, append = false) {
-    console.log(`Writing ${fileName}.json to output/${subdirectory}`);
+    console.log(`Writing ${fileName}.json to data/${subdirectory}`);
 
-    const filePath = join('output', subdirectory, `${fileName}.json`);
+    const filePath = join('data', subdirectory, `${fileName}.json`);
 
     try {
+        // Check if the directory exists, if not create it
         try {
             await access(filePath);
         } catch {
@@ -27,7 +28,7 @@ export async function writeDataToFile(inputData: object, subdirectory: string, f
             await writeFile(filePath, dataToWrite);
         }
 
-        console.log(`Finished writing output/${subdirectory}/${fileName}.json`);
+        console.log(`Finished writing data/${subdirectory}/${fileName}.json`);
     } catch (error) {
         console.error(`Error writing file: ${error}`);
     }
