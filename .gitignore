@@ -6,4 +6,5 @@ contentful-config.js
 .env
 .vscode
 output
+data
 migration.js
