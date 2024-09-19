@@ -39,7 +39,7 @@ const contentfulClient = contentful.createClient({
  */
 function loadQuestionsFromFile(questionType: string, fullUpload: boolean): Question[] {
     const pathHelper = fullUpload ? 'full' : 'test';
-    const data = readFileSync(`output/${pathHelper}/${questionType}.json`, 'utf8');
+    const data = readFileSync(`data/${pathHelper}/${questionType}.json`, 'utf8');
     return JSON.parse(data);
 }
 
